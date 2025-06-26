@@ -5,6 +5,10 @@ const connectDB = require("./config/database");
 
 const User = require("./models/user");
 
+const bcrypt = require("bcrypt");
+
+const { validateSignUpData } = require("./utils/validation");
+
 app.use(express.json()); //this is used to parse incoming json data(request body) to be specific the json data attached in the request is parsed into javascript object
 
 app.post("/signup", async (req, res) => {
@@ -15,13 +19,46 @@ app.post("/signup", async (req, res) => {
   //   password: "joeDoe@1234",
   // };
   //creating a new instance of the user model
-  const user = new User(req.body);
+
+  //validation of data
+
+  validateSignUpData(req);
+
+  //encrypt the password
+  const { password } = req.body;
+  const passwordHash = bcrypt.hash(password, 10);
+
+  //creating a new instance of the user
+  const user = new User({
+    firstName: req.body.firstName,
+    lastName: req.body.lastName,
+    emailId: req.body.emailId,
+    password: passwordHash,
+  });
 
   try {
     await user.save();
     res.send("user added successfully");
   } catch (e) {
     console.error("error saving user", e);
+  }
+});
+//login
+app.post("/login", async (req, res) => {
+  try {
+    const { emailId, password } = req.body;
+
+    const user = await User.findOne({ emailId });
+    if (user) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (isMatch) {
+        res.send("user logged in successfully");
+      } else {
+        res.status(400).send("incorrect password");
+      }
+    }
+  } catch (error) {
+    res.status(400).send("error logging in");
   }
 });
 
